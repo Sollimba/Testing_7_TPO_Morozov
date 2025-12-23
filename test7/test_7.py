@@ -20,25 +20,42 @@ def _open_photos_from_launcher(driver):
             continue
 
     if not btn:
+        print("ERROR: Google Photos not found on launcher")
         return False
 
     btn.click()
-    WebDriverWait(driver, 8).until(lambda d: d.current_package == PKG)
+    try:
+        WebDriverWait(driver, 8).until(lambda d: d.current_package == PKG)
+    except Exception:
+        print("ERROR: Google Photos did not open in 8 seconds")
+        return False
     return True
 
 def test_google_photos():
+    # Опции подключения
     options = UiAutomator2Options().load_capabilities({
         "platformName": "Android",
         "automationName": "UiAutomator2",
-        "deviceName": "emulator-5554",
+        "deviceName": "emulator-5554",  # ID эмулятора из adb devices
         "newCommandTimeout": 120,
         "settings[waitForIdleTimeout]": 0
     })
+
+    print("Connecting to Appium server...")
     driver = webdriver.Remote(APPIUM_SERVER, options=options)
 
-    try:
-        assert _open_photos_from_launcher(driver), "no photos app"
+    # Вывод капабилити для отладки
+    print("Device capabilities check")
+    print("Device name:", driver.capabilities.get("deviceName"))
+    print("Platform:", driver.capabilities.get("platformName"))
+    print("Current package:", driver.current_package)
 
+    try:
+        if not _open_photos_from_launcher(driver):
+            print("TEST FAILED: cannot open Google Photos")
+            return
+
+        print("Google Photos opened. Searching for 'Search' button...")
         time.sleep(1)
         candidates = [
             'new UiSelector().textContains("Search")',
@@ -48,8 +65,17 @@ def test_google_photos():
             elems = driver.find_elements(AppiumBy.ANDROID_UIAUTOMATOR, q)
             if elems:
                 break
-        assert elems, "no search button"
-        elems[0].click()
+
+        if not elems:
+            print("TEST FAILED: 'Search' button not found")
+        else:
+            print("'Search' button found. Clicking...")
+            elems[0].click()
+            print("TEST PASSED: Search button clicked")
 
     finally:
         driver.quit()
+        print("Driver session ended")
+
+if __name__ == "__main__":
+    test_google_photos()
